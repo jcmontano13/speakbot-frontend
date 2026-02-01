@@ -2,13 +2,17 @@ import React, { useState, useEffect } from "react";
 import InitMessagePlayer from "./components/InitMessagePlayer";
 import VoiceRecorder from "./components/VoiceRecorder";
 import AvatarPanel from "./components/Avatar/AvatarPanel";
+import ChatTranscript from "./components/Chat/ChatTranscript";
 
 function App() {
   const [isAvatarSpeaking, setIsAvatarSpeaking] = useState(false);
   const [chatStarted, setChatStarted] = useState(false);
   const [messages, setMessages] = useState([]);
 
-  // NEW: Controls visibility of the chat panel
+  // NEW: Prevent InitMessagePlayer from running twice
+  const [initMessageLoaded, setInitMessageLoaded] = useState(false);
+
+  // Controls visibility of the chat panel
   const [showChatPanel, setShowChatPanel] = useState(false);
 
   // Controls the "Start speaking with Amy" button
@@ -41,7 +45,8 @@ function App() {
       console.log("Threshold reached — trigger init message again");
       setChatStarted(false);
       setShowStartButton(true);
-      setShowChatPanel(false); // Hide chat panel again
+      setShowChatPanel(false);
+      setInitMessageLoaded(false); // allow init message again
     }
   }, [messages]);
 
@@ -56,10 +61,13 @@ function App() {
         </div>
 
         {/* Auto Init Message Fetcher */}
-        {!chatStarted && (
+        {!chatStarted && !initMessageLoaded && (
           <InitMessagePlayer
             setChatStarted={setChatStarted}
-            onInitMessage={handleInitMessage}
+            onInitMessage={(msg) => {
+              handleInitMessage(msg);
+              setInitMessageLoaded(true); // 🔥 prevents double init message
+            }}
           />
         )}
 
@@ -74,9 +82,7 @@ function App() {
 
           {/* RIGHT — Chat Panel (hidden until Start is clicked) */}
           {showChatPanel && (
-            <div className="flex-1 bg-[#F0ECD4] rounded-2xl p-4 max-h-[500px] overflow-y-auto">
-              <p className="opacity-60">ChatTranscript will appear here (Story 2)</p>
-            </div>
+            <ChatTranscript messages={messages} />
           )}
         </div>
 
@@ -96,7 +102,9 @@ function App() {
               className="bg-[#3D1164] text-white px-6 py-3 rounded-xl shadow font-semibold hover:bg-[#572584] transition"
               onClick={() => {
                 setShowStartButton(false);
-                setShowChatPanel(true); // SHOW CHAT PANEL HERE
+                setShowChatPanel(true);
+                setChatStarted(true);
+                setInitMessageLoaded(true); // 🔥 ensures InitMessagePlayer never runs again
                 playInitMessage();
               }}
             >
