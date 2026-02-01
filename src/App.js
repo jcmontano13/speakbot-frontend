@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import InitMessagePlayer from "./components/InitMessagePlayer";
 import VoiceRecorder from "./components/VoiceRecorder";
 import AvatarPanel from "./components/Avatar/AvatarPanel";
@@ -6,8 +6,44 @@ import AvatarPanel from "./components/Avatar/AvatarPanel";
 function App() {
   const [isAvatarSpeaking, setIsAvatarSpeaking] = useState(false);
   const [chatStarted, setChatStarted] = useState(false);
+  const [messages, setMessages] = useState([]);
 
-  console.log("App component rendered");
+  // NEW: Controls visibility of the chat panel
+  const [showChatPanel, setShowChatPanel] = useState(false);
+
+  // Controls the "Start speaking with Amy" button
+  const [showStartButton, setShowStartButton] = useState(true);
+
+  // Store init message (no autoplay here)
+  const handleInitMessage = (msg) => {
+    setMessages((prev) => [...prev, msg]);
+  };
+
+  // Play init message audio AFTER user clicks Start
+  const playInitMessage = () => {
+    const last = messages[messages.length - 1];
+
+    if (last?.sender === "amy" && last.audioUrl) {
+      const audio = new Audio(last.audioUrl);
+      setIsAvatarSpeaking(true);
+
+      audio.play().catch((err) => {
+        console.error("Init audio playback failed:", err);
+      });
+
+      audio.onended = () => setIsAvatarSpeaking(false);
+    }
+  };
+
+  // Threshold logic: trigger init message again after 5 messages
+  useEffect(() => {
+    if (messages.length === 5) {
+      console.log("Threshold reached — trigger init message again");
+      setChatStarted(false);
+      setShowStartButton(true);
+      setShowChatPanel(false); // Hide chat panel again
+    }
+  }, [messages]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#FDE8AD] via-[#FFA3BF] to-[#79C9F6] p-4">
@@ -19,24 +55,56 @@ function App() {
           <p className="text-sm opacity-90">Practice English with Amy</p>
         </div>
 
+        {/* Auto Init Message Fetcher */}
+        {!chatStarted && (
+          <InitMessagePlayer
+            setChatStarted={setChatStarted}
+            onInitMessage={handleInitMessage}
+          />
+        )}
+
         {/* Main Layout */}
         <div className="p-6 flex flex-col md:flex-row gap-6">
 
           {/* LEFT — Avatar */}
-          <AvatarPanel 
+          <AvatarPanel
             isSpeaking={isAvatarSpeaking}
             chatStarted={chatStarted}
           />
 
-          {/* RIGHT — Chat / Transcript */}
-          <div className="flex-1 bg-[#F0ECD4] rounded-2xl p-4 max-h-[500px] overflow-y-auto">
-            {/* Placeholder for now — will be replaced by ChatTranscript */}
-            <InitMessagePlayer setChatStarted={setChatStarted} />
-          </div>
+          {/* RIGHT — Chat Panel (hidden until Start is clicked) */}
+          {showChatPanel && (
+            <div className="flex-1 bg-[#F0ECD4] rounded-2xl p-4 max-h-[500px] overflow-y-auto">
+              <p className="opacity-60">ChatTranscript will appear here (Story 2)</p>
+            </div>
+          )}
         </div>
 
         {/* Bottom Controls */}
-        <div className="p-6 flex justify-center">
+        <div className="p-6 flex flex-col items-center gap-4">
+
+          {/* Speaking Indicator */}
+          {isAvatarSpeaking && (
+            <div className="px-4 py-2 bg-[#79C9F6] text-[#3D1164] font-semibold rounded-xl shadow animate-pulse">
+              Amy is speaking...
+            </div>
+          )}
+
+          {/* Start Button */}
+          {showStartButton && messages.length > 0 && (
+            <button
+              className="bg-[#3D1164] text-white px-6 py-3 rounded-xl shadow font-semibold hover:bg-[#572584] transition"
+              onClick={() => {
+                setShowStartButton(false);
+                setShowChatPanel(true); // SHOW CHAT PANEL HERE
+                playInitMessage();
+              }}
+            >
+              Start speaking with Amy
+            </button>
+          )}
+
+          {/* Voice Recorder */}
           <VoiceRecorder setIsAvatarSpeaking={setIsAvatarSpeaking} />
         </div>
 
