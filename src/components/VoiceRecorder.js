@@ -1,10 +1,9 @@
 // frontend/src/components/VoiceRecorder.js
 import React, { useState, useRef } from "react";
-import axios from "axios";
 
 const VOICE_API_BASE = "http://127.0.0.1:8000/voice";
 
-const VoiceRecorder = () => {
+function VoiceRecorder({ setIsAvatarSpeaking, onBackendResponse }) {
   const [recording, setRecording] = useState(false);
   const mediaRecorderRef = useRef(null);
   const chunksRef = useRef([]);
@@ -13,7 +12,6 @@ const VoiceRecorder = () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
 
-      // Pick the best supported format
       const mimeType = MediaRecorder.isTypeSupported("audio/wav")
         ? "audio/wav"
         : MediaRecorder.isTypeSupported("audio/webm")
@@ -32,6 +30,7 @@ const VoiceRecorder = () => {
 
       mediaRecorder.onstop = async () => {
         const blob = new Blob(chunksRef.current, { type: mimeType });
+        chunksRef.current = [];
         await sendVoiceMessage(blob, mimeType);
       };
 
@@ -53,40 +52,50 @@ const VoiceRecorder = () => {
 
   const sendVoiceMessage = async (blob, mimeType) => {
     const formData = new FormData();
-    // Use a generic filename but keep extension consistent with mimeType
+
     const extension = mimeType.includes("wav")
       ? "wav"
       : mimeType.includes("ogg")
       ? "ogg"
       : "webm";
+
     formData.append("audio", blob, `recording.${extension}`);
 
     try {
-      const res = await axios.post(`${VOICE_API_BASE}/chatrouter/`, formData, {
-        headers: { "Content-Type": "multipart/form-data" },
-        responseType: "blob", // expecting audio back
+      const response = await fetch(`${VOICE_API_BASE}/chatrouter/`, {
+        method: "POST",
+        body: formData, // DO NOT set Content-Type manually
       });
 
-      const url = URL.createObjectURL(res.data);
-      const botAudio = new Audio(url);
-      botAudio.play().catch((err) =>
-        console.error("Bot reply playback failed:", err)
-      );
+      const data = await response.json();
+      console.log("Backend JSON:", data);
+
+      // Pass JSON to App.js
+      onBackendResponse(data);
     } catch (err) {
       console.error("Voice message failed:", err);
     }
   };
 
   return (
-    <div>
-      <h3>Voice Recorder</h3>
+    <div className="flex flex-col items-center">
       {!recording ? (
-        <button onClick={startRecording}>🎙️ Start Recording</button>
+        <button
+          className="bg-green-600 text-white px-6 py-3 rounded-xl shadow"
+          onClick={startRecording}
+        >
+          Start Recording
+        </button>
       ) : (
-        <button onClick={stopRecording}>⏹️ Stop Recording</button>
+        <button
+          className="bg-red-600 text-white px-6 py-3 rounded-xl shadow"
+          onClick={stopRecording}
+        >
+          Stop Recording
+        </button>
       )}
     </div>
   );
-};
+}
 
 export default VoiceRecorder;

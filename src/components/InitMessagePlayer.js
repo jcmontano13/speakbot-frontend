@@ -1,6 +1,5 @@
 // frontend/src/components/InitMessagePlayer.js
-import React, { useEffect } from "react";
-import axios from "axios";
+import { useEffect } from "react";
 
 const CHAT_API_BASE = "http://127.0.0.1:8000/chat/api";
 
@@ -12,22 +11,19 @@ export default function InitMessagePlayer({
   useEffect(() => {
     async function fetchInitMessage() {
       try {
-        const res = await axios.get(`${CHAT_API_BASE}/init-message/`, {
-          responseType: "blob",
-        });
+        const res = await fetch(`${CHAT_API_BASE}/init-message/`);
+        const data = await res.json();
 
-        const audioUrl = URL.createObjectURL(res.data);
+        console.log("Init message JSON:", data);
 
-        const transcript = "Hello! Let's start practicing English together.";
-
-        // Register init message with parent
         onInitMessage({
+          type: "init",
           sender: "amy",
-          text: transcript,
-          audioUrl,
+          text: data.bot_response,
+          audioUrl: data.audio_url,
         });
 
-        setChatStarted(true);
+        setChatStarted(false);
 
       } catch (err) {
         console.error("Init message failed:", err);
@@ -35,6 +31,8 @@ export default function InitMessagePlayer({
     }
 
     fetchInitMessage();
+
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return null;
