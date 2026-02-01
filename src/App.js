@@ -9,7 +9,7 @@ function App() {
   const [chatStarted, setChatStarted] = useState(false);
   const [messages, setMessages] = useState([]);
 
-  // NEW: Prevent InitMessagePlayer from running twice
+  // Prevent InitMessagePlayer from running twice
   const [initMessageLoaded, setInitMessageLoaded] = useState(false);
 
   // Controls visibility of the chat panel
@@ -21,6 +21,53 @@ function App() {
   // Store init message (no autoplay here)
   const handleInitMessage = (msg) => {
     setMessages((prev) => [...prev, msg]);
+  };
+
+  // Handle backend JSON response from VoiceRecorder
+  const handleBackendResponse = (data) => {
+    // ⭐ If this is an init message, bypass all guards
+    if (data.type === "init") {
+      setMessages((prev) => [
+        ...prev,
+        {
+          sender: "amy",
+          text: data.bot_response,
+          audioUrl: data.audio_url,
+        }
+      ]);
+
+      playInitMessage();
+      return;
+    }
+
+    // ⭐ Normal voice flow
+    const { user_transcript, bot_transcript, audio_url } = data;
+
+    if (!user_transcript && !bot_transcript) {
+      console.warn("Empty backend response — ignoring");
+      return;
+    }
+
+    setMessages((prev) => [
+      ...prev,
+      user_transcript && {
+        sender: "user",
+        text: user_transcript,
+        audioUrl: null,
+      },
+      bot_transcript && {
+        sender: "amy",
+        text: bot_transcript,
+        audioUrl: audio_url || null,
+      },
+    ].filter(Boolean));
+
+    if (audio_url) {
+      const audio = new Audio(audio_url);
+      setIsAvatarSpeaking(true);
+      audio.play().catch(console.error);
+      audio.onended = () => setIsAvatarSpeaking(false);
+    }
   };
 
   // Play init message audio AFTER user clicks Start
@@ -41,7 +88,7 @@ function App() {
 
   // Threshold logic: trigger init message again after 5 messages
   useEffect(() => {
-    if (messages.length === 5) {
+    if (messages.length === 10) {
       console.log("Threshold reached — trigger init message again");
       setChatStarted(false);
       setShowStartButton(true);
@@ -66,7 +113,7 @@ function App() {
             setChatStarted={setChatStarted}
             onInitMessage={(msg) => {
               handleInitMessage(msg);
-              setInitMessageLoaded(true); // 🔥 prevents double init message
+              setInitMessageLoaded(true); // prevents double init message
             }}
           />
         )}
@@ -80,7 +127,7 @@ function App() {
             chatStarted={chatStarted}
           />
 
-          {/* RIGHT — Chat Panel (hidden until Start is clicked) */}
+          {/* RIGHT — Chat Panel */}
           {showChatPanel && (
             <ChatTranscript messages={messages} />
           )}
@@ -104,7 +151,7 @@ function App() {
                 setShowStartButton(false);
                 setShowChatPanel(true);
                 setChatStarted(true);
-                setInitMessageLoaded(true); // 🔥 ensures InitMessagePlayer never runs again
+                setInitMessageLoaded(true);
                 playInitMessage();
               }}
             >
@@ -113,7 +160,10 @@ function App() {
           )}
 
           {/* Voice Recorder */}
-          <VoiceRecorder setIsAvatarSpeaking={setIsAvatarSpeaking} />
+          <VoiceRecorder
+            setIsAvatarSpeaking={setIsAvatarSpeaking}
+            onBackendResponse={handleBackendResponse}
+          />
         </div>
 
       </div>
